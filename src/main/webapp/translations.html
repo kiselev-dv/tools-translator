@@ -47,27 +47,27 @@
 		</tr>
 	</table>
 	<div id="map"></div>
+	<div id="user-info">
+		<div ng-show="osmLogin">You are logged as: {{osmLogin}}</div>
+		<div ng-hide="osmLogin">You are not logged in</div>
+		<button ng-hide="osmLogin" ng-click="authentificate();">Login in OSM</button>
+		<button ng-click="logout();">Logout</button>
+	</div>
 	<div id="changes" ng-show="merged4Save">
 		<span>Изменений: </span><span ng-bind="countChanges();"></span>
-		<textarea rows="5" style="width: 400px;" ng-model="changesetComment"></textarea>
-		<button ng-show="changesetComment" ng-click="$broadcast('save');">Save to OSM</button>
+		<input type="text" placeholder="Коментарии к правкам" 
+			style="width: 400px;" ng-model="changesetComment"></input>
+		<div ng-bind="saveState"></div>
+		<a ng-show="savedChangesetId" href="http://openstreetmap.org/changeset/{{savedChangesetId}}">Chaingeset {{savedChangesetId}}</a>
+		<button ng-show="changesetComment && osmLogin" ng-click="$broadcast('save');">Save to OSM</button>
 	</div>
 	<div class="clear-fix"></div>
-	<div>
-		<a class="page" ng-repeat="pg in srPages" ng-bind="pg.p" href="#!/page/{{pg.p}}"></a>
+	<div id="pager">
+		<a class="page" ng-class="{curentpage: pg.active, spaceleft: pg.spaceLeft, spaceright: pg.spaceRight}" 
+			ng-repeat="pg in srPages" ng-bind="pg.p" ng-click="goPage(pg)"></a>
 	</div>
 
 	<button ng-hide="saved" ng-click="$broadcast('merge');">Merge</button>
 
-	<!-- 
-		<div ng-show="overlay" class="overlay">
-		</div>
-		<div ng-show="overlay" class="overlay-content-wraper">
-			<div class="overlay-content">
-				<textarea rows="20" style="width:100%;" ng-bind="osmChangeXML"></textarea>
-				<button ng-click="clear();">Close</button>
-			</div>
-		</div>
-	 -->
 </body>
 </html>

@@ -10,15 +10,22 @@ app.config(['$httpProvider', function($httpProvider) {
 
 var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function($scope, $http, osm) {
 	
-	this.updatePage = function() {
+	function updatePage() {
+		params = {
+			'langs': $scope.langs,
+			'type': $scope.type,
+			'country': $scope.country,
+			'city': $scope.city,
+			'name': $scope.name
+		};
+		
+		if($scope.curentPage) {
+			params['from'] = ($scope.curentPage.p - 1) * 20;
+			params['to'] = $scope.curentPage.p * 20;
+		}
+		
 		$http.get(API_ROOT + '/translator/api/page.json', {
-			'params': {
-				'langs': $scope.langs,
-				'type': $scope.type,
-				'country': $scope.country,
-				'city': $scope.city,
-				'name': $scope.name
-			}
+			'params': params
 		}).success(function(data){
 			$scope.page = data;
 			$scope.getSrPages();
@@ -27,7 +34,7 @@ var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function(
 		});
 	};
 
-	this.updateMap = function(row) {
+	function updateMap(row) {
 		var zoom = 13;
 		if(row.type == 'admbnd') {
 			zoom = 11;
@@ -41,8 +48,6 @@ var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function(
 		
 		$scope.map.setView([row.lat, row.lon], zoom);
 	};
-	
-	$scope.overlay = false;
 	
 	$scope.map = L.map('map').setView([51.505, -0.09], 13);
 	L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
@@ -58,11 +63,10 @@ var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function(
 		return true;
 	};
 	
-	this.updatePage();
+	updatePage();
 
-	$scope.$on('merge', function(){
+	function merge(){
 		
-		//$scope.overlay = true;
 		osm.merge($scope.page, function(merged) {
 			if(!$scope.merged4Save) {
 				$scope.merged4Save = {};
@@ -74,53 +78,89 @@ var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function(
 			
 		});
 
-	});
+	}
+	
+	$scope.$on('merge', merge);
 	
 	$scope.$on('save', function() {
-		osm.createChangeset($scope.changesetComment, function(changesetid){
-			var xml = osm.encode4API($scope.merged4Save, changesetid);
-			osm.upload2API(xml, changesetid, function(err, details) {
-				
-				osm.closeChangeset(changesetid);
-				
-				var req = {
+		
+		osm.doSave($scope, $scope.merged4Save, $scope.changesetComment, function(){
+			var req = {
 					method: 'PUT',
 					url: API_ROOT + '/translator/api/page.json',
 					headers: {
-					   'Content-Type': 'application/json'
+						'Content-Type': 'application/json'
 					},
-				    data: $scope.page
-				};
+					data: $scope.page
+			};
 			
-				$http(req).success(function(data){
-					angular.forEach($scope.page.rows, function(r){
-						r.updated = false;
-					});
-					
-					$scope.merged4Save = null;
-					
-					$scope.$broadcast('saved');
+			$http(req).success(function(data){
+				angular.forEach($scope.page.rows, function(r){
+					r.updated = false;
 				});
+				
+				$scope.merged4Save = null;
+				
+				$scope.$broadcast('saved');
 			});
 		});
+		
+	});
+	
+	$scope.goPage = function(page) {
+		merge();
+		$scope.curentPage = page;
+		updatePage();
+	}
+	
+	$scope.$on('changesetCreated', function(e, cntxt) {
+		$scope.saveState = 'Changeset ' + cntxt.id + ' created.';
+		$scope.$digest();
+	});
+	$scope.$on('changesetUploaded', function(e, cntxt) {
+		$scope.saveState = 'Data uploaded.';
+		$scope.$digest();
+	});
+	$scope.$on('changesetClosed', function(e, cntxt) {
+		$scope.saveState = 'Changeset ' + cntxt.id + ' saved.';
+		$scope.savedChangesetId = cntxt.id;
+		$scope.$digest();
 	});
 	
 	$scope.$on('saved', function() {
 		console.log('data was saved');
+		$scope.clear();
 	});
+
+	$scope.authentificate = function() {
+		osm.getLogin(function(error, user){
+			if(user) {
+				$scope.osmLogin = user;
+				$scope.$digest();
+			}
+		});
+	};
+	
+	if(osm.isAuthentificated()) {
+		$scope.authentificate();
+	}
+
+	$scope.logout = function() {
+		osm.logout();
+		$scope.osmLogin = null;
+		$scope.$digest();
+	}
 	
 	$scope.clear = function(){
 		$scope.saved = true;
 		$scope.uploaded = null;
-		$scope.overlay = false;
-		$scope.osmChangeXML = null;
+		$scope.merged4Save = null;
+		$scope.changesetComment = null;
 	};
 	
-	$scope.updatePage = this.updatePage;
+	$scope.updatePage = updatePage;
 	
-	$scope.updateMap = this.updateMap;
-	
-	$scope.authentificate = osm.authentificate;
+	$scope.updateMap = updateMap;
 	
 	$scope.countChanges = function() {
 		if(!$scope.merged4Save) {
@@ -137,7 +177,7 @@ var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function(
 			
 			var total = $scope.page.all;
 			var pageSize = $scope.page.to - $scope.page.from;
-			var page = $scope.page.from / pageSize;
+			var page = ($scope.page.from / pageSize) + 1;
 			var maxPage = parseInt(total/pageSize);
 			if(total % pageSize == 0) {
 				maxPage += 1;
@@ -150,7 +190,7 @@ var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function(
 				};
 			}
 			
-			for(var i = page - 1; i <= page + 1; i++){
+			for(var i = page - 3; i <= page + 3; i++){
 				if(i > 0 && i <= maxPage) {
 					r[i] = {
 							'p':i,
@@ -159,7 +199,7 @@ var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function(
 				}
 			}
 			
-			for(var i = maxPage - 2; i <= maxPage; i++){
+			for(var i = maxPage - 3; i <= maxPage; i++){
 				if(i > 0) {
 					r[i] = {
 							'p':i,
@@ -174,6 +214,16 @@ var tableCtrl = app.controller('tableCtrl', ['$scope', '$http', 'osm', function(
 		});
 		
 		rarr.sort(function (a, b) { return a.p - b.p; });
+		
+		for(var i = 0; i < rarr.length; i++) {
+			var ci = rarr[i].p;
+			var ni = rarr[i + 1] == null ? null : rarr[i + 1].p;
+			
+			if(ni && (ni - ci > 1)) {
+				rarr[i].spaceRight = true;
+				rarr[i + 1].spaceLeft = true;
+			}
+		}
 		
 		$scope.srPages = rarr;
 	}

@@ -22,9 +22,6 @@ td {
 td.edit {
 	min-width: 200px;
 }
-a.page {
-	margin-right: 10px;
-}
 .clear-fix {
 	clear: both;
 }
@@ -53,7 +50,27 @@ div.overlay-content {
 	background-color: white;
 	padding: 20px;
 }
-#changes {
+#changes, #user-info {
 	float:left;
 	width: 400px;
+	margin-right: 20px;
+}
+a.page {
+	margin-right: 10px;
+	cursor: pointer;
+}
+.curentpage {
+	text-decoration: underline;
+	cursor: auto;
+	color: red;
+}
+#pager a.spaceright {
+	margin-right: 0; 
+}
+.spaceright:AFTER {
+	content: '..';
+	margin-right: 0; 
+}
+.spaceleft:BEFORE {
+	content: '..'; 
 }

@@ -192,8 +192,8 @@ osm.factory('osm', ['$http', function($http) {
 		}
 		
 		,'encode4JOSM': function(merged) {
-			var xml = '';
-			xml += '<?xml version="1.0" encoding="UTF-8"?>\n'; 
+			var xml = '\n';
+			//xml += '<?xml version="1.0" encoding="UTF-8"?>\n'; 
 			xml += '<osm version="0.6" upload="true" generator="translator.osm.xml">\n';
 			angular.forEach(merged, function(obj){
 				xml += '	<' + obj.typeName + ' action="modify" ';
@@ -223,20 +223,17 @@ osm.factory('osm', ['$http', function($http) {
 			return xml;
 		}
 		
-		,'encode4API': function(changeset) {
-			var xml = '';
-			xml += '<?xml version="1.0" encoding="UTF-8"?>\n'; 
-			xml += '<osmChange version="0.6" generator="translator.osm.xml">\n';
+		,'encode4API': function(merged, changeset) {
+			var xml = '\n';
+			//xml += '<?xml version="1.0" encoding="UTF-8"?>\n'; 
+			xml += '<osmChange version="0.6" generator="names.osm.me">\n';
 			xml += '	<modify>\n';
 			angular.forEach(merged, function(obj){
 				xml += '	<' + obj.typeName + ' ';
 				
 				angular.forEach(obj.attrs, function(attrV, attrN) {
-					if (attrN == 'id' || attrN == 'lon' || attrN == 'lat' ) {
+					if (attrN == 'id' || attrN == 'lon' || attrN == 'lat' || attrN == 'version') {
 						xml += attrN + '="' + attrV + '" ';
-					}
-					if(attrN == 'version') {
-						xml += attrN + '="' + (parseInt(attrV) + 1) + '" ';
 					}
 				});
 				
@@ -260,7 +257,7 @@ osm.factory('osm', ['$http', function($http) {
 				xml += '	</' + obj.typeName + '>\n';
 			});
 			xml += '	</modify>\n';
-			xml += '</osm>';
+			xml += '</osmChange>';
 			
 			return xml;
 		}
@@ -270,17 +267,19 @@ osm.factory('osm', ['$http', function($http) {
 			auth.xhr({
 				'method': 'POST',
 				'path': '/api/0.6/changeset/' + changeset + '/upload',
-				'content': apiXML
+				'content': apiXML,
+				'options': {header: {'Content-Type': 'text/xml'}}
 			}, 
 			callback);
 		}
 		
-		,'createChangeset': function(comment, success) {
+		,'createChangeset': function(comment, callback) {
 			
-			var xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+			var xml = '';
+			xml += '<?xml version="1.0" encoding="UTF-8"?>\n';
 			xml += '<osm>\n';
 			xml += '  <changeset>\n';
-			xml += '    <tag k="created_by" v="translator.osm.me"/>\n';
+			xml += '    <tag k="created_by" v="names.osm.me"/>\n';
 			xml += '    <tag k="comment" v="' + comment + '"/>\n';
 			xml += '  </changeset>\n';
 			xml += '</osm>';
@@ -288,19 +287,78 @@ osm.factory('osm', ['$http', function($http) {
 			auth.xhr({
 				'method': 'PUT',
 				'path': '/api/0.6/changeset/create',
-				'content': xml
-			}, function(err, details) {
-				console.log(details);
-				success(details);
-			});
+				'content': xml,
+				'options': {header: {'Content-Type': 'text/xml'}}
+			}, callback);
 		}
 		
-		,'closeChangeset': function(changeset) {
+		,'closeChangeset': function(changeset, callback) {
 			auth.xhr({
 				'method': 'PUT',
 				'path': '/api/0.6/changeset/' + changeset + '/close'
-			}, function(err, details) {
-				console.log(details);
+			}, callback);
+		}
+		
+		,'getLogin': function(callback){
+			auth.xhr({
+				'method': 'GET',
+				'path': '/api/0.6/user/details'
+			}, function(err, data) {
+				if(data) {
+					var root = data.documentElement;
+					
+					for(var i = 0; i < root.childNodes.length; i++) {
+						if(root.childNodes[i].nodeName == 'user') {
+							var username = root.childNodes[i].attributes['display_name'].nodeValue;
+							callback(err, username);
+							return;
+						}
+					}
+				}
+			});
+		}
+		
+		,'logout': function() {
+			auth.logout();
+		}
+		
+		,'isAuthentificated': function() {
+			return auth.authenticated();
+		}
+		
+		,'doSave': function($scope, objects, comment, callback) {
+			
+			service.createChangeset(comment, function(error, changesetid){
+				
+				if(!changesetid) {
+					$scope.$broadcast('error', {
+						'stage': 'create-changeset',
+						'api': 'osm',
+						'error': error
+					});
+					return;
+				}
+				
+				$scope.$broadcast('changesetCreated', {
+					'id': changesetid
+				});
+				
+				var xml = service.encode4API(objects, changesetid);
+				service.upload2API(xml, changesetid, function(err, details) {
+					
+					$scope.$broadcast('changesetUploaded', {
+						'id': changesetid
+					});
+					
+					service.closeChangeset(changesetid, function(err, details){
+						$scope.$broadcast('changesetClosed', {
+							'id': changesetid
+						});
+						
+						callback();
+					});
+					
+				});
 			});
 		}
 		
