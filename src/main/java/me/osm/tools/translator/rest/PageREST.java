@@ -1,6 +1,5 @@
 package me.osm.tools.translator.rest;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +22,6 @@ import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.restexpress.Request;
 import org.restexpress.Response;
@@ -38,8 +36,7 @@ public class PageREST {
 			int to = request.getHeader("to") == null ? 20 : Integer.parseInt(request.getHeader("to"));
 			
 			String type = StringUtils.stripToNull(request.getHeader("type"));
-			String country = StringUtils.stripToNull(request.getHeader("country"));
-			String city = StringUtils.stripToNull(request.getHeader("city"));
+			String address = StringUtils.stripToNull(request.getHeader("address"));
 			String name = StringUtils.stripToNull(request.getHeader("name"));
 			
 			List<String> langs = request.getHeaders("langs");
@@ -48,15 +45,11 @@ public class PageREST {
 			
 			QueryBuilder query = QueryBuilders.matchAllQuery();
 			
-			if(country != null || city != null || name != null) {
+			if(address != null || name != null) {
 				BoolQueryBuilder bq = QueryBuilders.boolQuery();
 				
-				if(country != null) {
-					bq.should(QueryBuilders.matchQuery("country", country));
-				}
-
-				if(city != null) {
-					bq.should(QueryBuilders.matchQuery("city", city));
+				if(address != null) {
+					bq.should(QueryBuilders.matchQuery("addr", address));
 				}
 
 				if(name != null) {
@@ -92,7 +85,7 @@ public class PageREST {
 				row.lon(hitJSON.getJSONObject("centroid").getDouble("lon"))
 					.lat(hitJSON.getJSONObject("centroid").getDouble("lat"));
 			
-				JSONObject tags = hitJSON.getJSONObject("tags");
+				JSONObject tags = hitJSON.getJSONObject("names");
 				row.name(tags.getString("name"));
 				row.type(hitJSON.getString("type"));
 				for(String lang : langs) {

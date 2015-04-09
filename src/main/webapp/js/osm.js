@@ -1,9 +1,5 @@
 var osm = angular.module("osm", []);
 
-var OSM_API_ROOT = 'http://api.openstreetmap.org';
-
-
-
 osm.factory('osm', ['$http', function($http) {
 	
 	var parseXml;

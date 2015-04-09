@@ -1,8 +1,11 @@
 package me.osm.tools.translator.rest;
 
 import java.io.FileInputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
@@ -89,15 +92,42 @@ public class ImportREST {
 		JSONObject obj = new JSONObject();
 		obj.put("type", type);
 		obj.put("osmid", osmid);
-		obj.put("names", filterNames(row.optJSONObject("tags")));
-		obj.put("tags", row.optJSONObject("tags"));
 		
-		obj.put("country", row.optString("admin0_name"));
-		obj.put("city", row.optString("locality_name"));
+		JSONObject filteredNames = filterNames(row.optJSONObject("tags"));
+		if(!filteredNames.has("name")) {
+			return;
+		}
+		
+		obj.put("names", filteredNames);
+		
+		obj.put("addr", getAddrString(row));
 
 		obj.put("centroid", row.optJSONObject("center_point"));
 		
 		writeToBatch(osmid, obj);
+	}
+
+	private String getAddrString(JSONObject row) {
+		List<String> elements = new ArrayList<>();
+		
+		addIfNotEmpty(elements, row, "name");
+		addIfNotEmpty(elements, row, "admin0_name");
+		addIfNotEmpty(elements, row, "admin1_name");
+		addIfNotEmpty(elements, row, "admin2_name");
+		addIfNotEmpty(elements, row, "local_admin_name");
+		addIfNotEmpty(elements, row, "locality_name");
+		
+		return StringUtils.join(elements, " ");
+	}
+
+	private void addIfNotEmpty(List<String> elements, JSONObject row,
+			String key) {
+
+		String optString = StringUtils.stripToNull(row.optString(key));
+		if(optString != null) {
+			elements.add(optString);
+		}
+		
 	}
 
 	@SuppressWarnings("unchecked")

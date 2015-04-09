@@ -7,10 +7,8 @@ table.page {
 	float: left;
 }
 #map {
-	float: left;
 	width: 400px;
 	height: 400px;
-	margin-left: 10px;
 }
 thead {
 	font-weight: bold;
@@ -51,7 +49,6 @@ div.overlay-content {
 	padding: 20px;
 }
 #changes, #user-info {
-	float:left;
 	width: 400px;
 	margin-right: 20px;
 }
@@ -73,4 +70,14 @@ a.page {
 }
 .spaceleft:BEFORE {
 	content: '..'; 
+}
+.float-left {
+	float:left;
+	margin-left: 10px;
+}
+.click {
+	cursor: pointer;
+}
+#header {
+	margin-bottom: 15px;
 }
